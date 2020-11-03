@@ -37,7 +37,7 @@ router.put(
     }
     try {
       // cheeck if the customer profile exists
-      const custProfile = await CustProfile({
+      const custProfile = await CustProfile.findOne({
         customer: req.customer.customer
       });
       if (!custProfile) {
