@@ -12,62 +12,83 @@ const router = Router();
  * Private Route
  */
 
-router.post(
-  "/",
-  [
-    authMiddleware,
-    [
-      body("website", "Enter a valid website").isString(),
-      body("address", "Enter a Valid Address")
-        .isString()
-        .isLength({ max: 150 }),
-      body("location").isString(),
-      body("phone").isString()
-    ]
-  ],
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      res.status(500).json({ Error: errors.array() });
-    }
-    try {
-      // Check if email is verified
-      const customerData = await Customer.findById(req.customer.customer);
-      if (!customerData) {
-        return res.status(400).json({ Error: "UnAuthorized / Invalid User" });
-      }
-      if (!customerData.active) {
-        return res.status(400).json({ Error: "Inactive Customer" });
-      }
-
-      // check if the profile already exists
-      const custProfile = await CustProfile.findOne({
-        customer: req.customer.customer
-      });
-      if (custProfile) {
-        return res.status(400).json({ Error: " Profile Already Exists" });
-      }
-      const { website, address, location, phone, bio, skills } = req.body;
-
-      const newCustProfile = new CustProfile({
-        customer: req.customer.customer,
-        website: website,
-        address: address,
-        location: location,
-        phone: phone,
-        bio: bio,
-        skills: skills
-      });
-
-      await newCustProfile.save();
-
-      res.status(200).json({ newCustProfile });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ Error: "Unable to create Profile for the user" });
-    }
+router.post("/", authMiddleware, async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    res.status(500).json({ Error: errors.array() });
   }
-);
+  try {
+    // Check if email is verified
+    const customerData = await Customer.findById(req.customer.customer);
+    if (!customerData) {
+      return res.status(400).json({ Error: "UnAuthorized / Invalid User" });
+    }
+    if (!customerData.active) {
+      return res.status(400).json({ Error: "Inactive Customer" });
+    }
+
+    const {
+      website,
+      address,
+      location,
+      phone,
+      bio,
+      isOpen,
+      skills,
+      facebook,
+      instagram,
+      linkedin,
+      twitter,
+      youtube
+    } = req.body;
+
+    const profileFields = {};
+
+    profileFields.customer = req.customer.customer;
+    if (address) profileFields.address = address;
+    if (website) profileFields.website = website;
+    if (location) profileFields.location = location;
+    if (bio) profileFields.bio = bio;
+    if (phone) profileFields.phone = phone;
+    if (isOpen) profileFields.isOpen = isOpen;
+    if (skills) {
+      profileFields.skills = skills.split(",").map(str => str.trim());
+    }
+    profileFields.social = {};
+    if (youtube) profileFields.social.youtube = youtube;
+    if (facebook) profileFields.social.facebook = facebook;
+    if (instagram) profileFields.social.instagram = instagram;
+    if (twitter) profileFields.social.twitter = twitter;
+    if (linkedin) profileFields.social.linkedin = linkedin;
+
+    // check if the profile already exists, if so Update
+    const custProfile = await CustProfile.findOne({
+      customer: req.customer.customer
+    });
+    if (custProfile) {
+      // Update the Profile
+      const customerProfile = await CustProfile.findOneAndUpdate(
+        {
+          customer: req.customer.customer
+        },
+        {
+          $set: profileFields
+        },
+        { new: true }
+      );
+      return res.status(200).json(customerProfile);
+    }
+
+    // Create customer profile
+    customerProfile = new CustProfile(profileFields);
+    await customerProfile.save();
+
+    res.status(200).json(customerProfile);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ Error: "Unable to create Profile for the user" });
+  }
+});
 
 /**
  * Routee: /api/customer/profile GET
@@ -92,11 +113,11 @@ router.get("/", authMiddleware, async (req, res) => {
 });
 
 /**
- * Routee: /api/customer/profile GET
+ * Routee: /api/customer/profile/all GET
  * Get Customer Profile
  * Public Route
  */
-router.get("/all", async (req, res) => {
+router.get("/all", async (req, res, next) => {
   try {
     const customerProfle = await CustProfile.find(
       {},

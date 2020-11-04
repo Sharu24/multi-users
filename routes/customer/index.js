@@ -10,8 +10,10 @@ const pug = require("pug");
 const config = require("../../config");
 
 const Mailer = require("../../controllers/mailControllers");
+const authMiddleware = require("../../controllers/authMiddleware");
 
 const Customer = require("../../models/Customer");
+const CustProfile = require("../../models/CustProfile");
 const Admin = require("../../models/Admin");
 
 /**
@@ -102,6 +104,22 @@ router.get("/verify/:emailtoken", async (req, res, next) => {
     res.status(200).json({ Success: "User Verified Successfully" });
   } catch (err) {
     res.status(500).json({ Error: "Unable to Verify User" });
+  }
+});
+
+router.delete("/", authMiddleware, async (req, res) => {
+  try {
+    const customerId = req.customer.customer;
+    if (!customerId) {
+      return res.status(400).json({ Error: "Unauthorized User" });
+    }
+    await Customer.findOneAndDelete({ _id: customerId });
+    await CustProfile.findOneAndDelete({ customer: customerId });
+
+    res.status(200).json({ Success: "Customer is Removed" });
+  } catch (err) {
+    console.error(err);
+    res.status(400).json({ Error: "Could not Delete Customer Record" });
   }
 });
 

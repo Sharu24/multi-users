@@ -54,7 +54,7 @@ router.put(
         description
       } = req.body;
 
-      const experience = {
+      const newExp = {
         title: title,
         company: company,
         location: location,
@@ -64,12 +64,15 @@ router.put(
         description: description
       };
 
-      await CustProfile.updateOne(
-        { customer: req.customer.customer },
-        {
-          $push: { experience: experience }
-        }
-      );
+      custProfile.experience.unshift(newExp);
+      await custProfile.save();
+
+      //   await CustProfile.updateOne(
+      //     { customer: req.customer.customer },
+      //     {
+      //       $push: { experience: experience }
+      //     }
+      //   );
 
       res.status(200).json({ Success: "Updated Customer Experience" });
     } catch (err) {
@@ -78,4 +81,32 @@ router.put(
     }
   }
 );
+
+router.delete("/:experienceId", authMiddleware, async (req, res) => {
+  try {
+    const expId = req.params.experienceId;
+
+    // cheeck if the customer profile exists
+    const custProfile = await CustProfile.findOne({
+      customer: req.customer.customer
+    });
+    if (!custProfile) {
+      return res.status(400).json({ Error: "No Customer Profile Found" });
+    }
+
+    const index = custProfile.experience.findIndex(ele => ele._id == expId);
+
+    if (index === -1) {
+      return res.status(400).json({ Error: "No such Experience" });
+    }
+
+    custProfile.experience.splice(index, 1);
+    await custProfile.save();
+
+    res.status(200).json({ custProfile });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ Error: "Unable to Delete Experience" });
+  }
+});
 module.exports = router;

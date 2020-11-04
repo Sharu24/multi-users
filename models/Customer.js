@@ -26,7 +26,7 @@ const customerSchema = new Schema({
   },
   active: {
     type: Boolean,
-    default: true
+    default: false
   }
 });
 
